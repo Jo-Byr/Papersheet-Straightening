@@ -7,4 +7,4 @@ Still unperfect :
 - not tested for important angles
 - borders detection not exact
 - slow
-- not testes for lanscape format
+- not tested for lanscape format
