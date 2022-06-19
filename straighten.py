@@ -12,6 +12,26 @@ from math import ceil,floor
 import matplotlib.pyplot as plt
 import time
 
+def orientation(P,nx,ny):         
+    """
+    From list P of positions of corners on image and dimensions of base image (ny * nx)
+    Returns orientation of the papersheet on the photo : 1 for landscape, 0 for portrait
+    """
+    dist_TL = [np.sqrt(x**2 + y**2) for x,y in P]
+    TL = P[dist_TL.index(min(dist_TL))]
+    
+    dist_TR = [np.sqrt((x-nx)**2 + y**2) for x,y in P]
+    TR = P[dist_TR.index(min(dist_TR))]
+    
+    dist_BL = [np.sqrt(x**2 + (y-ny)**2) for x,y in P]
+    BL = P[dist_BL.index(min(dist_BL))]
+    
+    orientation = 0
+    
+    if np.sqrt((TL[0] - TR[0])**2 + (TL[1] - TR[1])**2) > np.sqrt((TL[0] - BL[0])**2 + (TL[1] - BL[1])**2):
+        orientation = 1
+
+    return orientation
 
 def straighten(img):
     I = img.copy()
@@ -30,7 +50,7 @@ def straighten(img):
     # Binarisation
     n = 2*(nx//60)+1
     binary = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, 
-                                   cv2.THRESH_BINARY_INV, n, n//4)
+                                   cv2.THRESH_BINARY_INV, n, n//8)
     binary = cv2.erode(binary,np.ones((5,5)))
 
     # Hough transform
@@ -47,7 +67,7 @@ def straighten(img):
         r, t = lines[i][0]
         treated = False
         for l in found_lines:
-            if abs(r - l[0]) < dr and abs(t - l[1]) < dt:
+            if (abs(r - l[0]) < dr and abs(t - l[1]) < dt) or abs(abs(r) - abs(l[0]) < dr and abs(t - l[1] - np.pi) < dt):
                 treated = True
 
         if not(treated):
@@ -79,9 +99,17 @@ def straighten(img):
             t1 = found_lines[i][1]
             r2 = found_lines[j][0]
             t2 = found_lines[j][1]
-            x = np.tan(t1)*np.tan(t2)/(np.tan(t2)-np.tan(t1)) * \
-                (r1/np.sin(t1) - r2/np.sin(t2))
-            y = -x/np.tan(t1) + r1/np.sin(t1)
+            if t1!=0 and t2!=0:
+                x = np.tan(t1)*np.tan(t2)/(np.tan(t2)-np.tan(t1)) * (r1/np.sin(t1) - r2/np.sin(t2))
+                y = -x/np.tan(t1) + r1/np.sin(t1)
+                
+            elif t1 == 0:
+                x = r1
+                y = -x/np.tan(t2) + r2/np.sin(t2)
+                
+            else:
+                x = r2
+                y = -x/np.tan(t1) + r1/np.sin(t1)   
 
             if 0 <= x <= nx and 0 <= y <= ny:
                 P.append((x, y))
@@ -98,6 +126,10 @@ def straighten(img):
                 size = dist
     dist = int(dist)
     sy,sx = int(1.414*dist),dist
+    
+    form = orientation(P,nx,ny)
+    if form == 1:
+        sy,sx = sx,sy
     
     C = [(0, 0), (sx-1, 0), (0, sy-1), (sx-1, sy-1)]
     for x, y in P:
@@ -156,8 +188,8 @@ def straighten(img):
 
 
 if __name__ == '__main__':
-    I = cv2.imread('./Images/Rotation/im2.jpg')
-    I = cv2.rotate(I, cv2.ROTATE_90_CLOCKWISE)
+    I = cv2.imread('./Images/Straighten/im5.jpeg')
+    #I = cv2.rotate(I, cv2.ROTATE_90_CLOCKWISE)
     t1 = time.perf_counter_ns()
     res = straighten(I)
     t2 = time.perf_counter_ns()
