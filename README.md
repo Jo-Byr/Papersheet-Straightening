@@ -6,5 +6,4 @@ Algorithm inspired by this article : https://hypjudy.github.io/2017/03/28/cvpr-A
 Still unperfect :
 - not tested for important angles
 - borders detection not exact
-- slow
 - not tested for lanscape format
