@@ -5,30 +5,12 @@ Created on Tue Jun 14 15:55:32 2022
 @author: jonat
 """
 
-# Pb si l'image est en format paysage
-# Pour le moment on fait du redressement puis on vérifie si on a besoin de rotation, à voir si on peut pas combiner les 2 par la suite
-# Vérifier si les redressements horizontal et vertical sur une même image donnent un bon résultat
-
 import cv2
 import numpy as np
 from math import ceil,floor
 
 import matplotlib.pyplot as plt
-
-
-def f(x0, x1, a, b):
-    Y = np.asarray([b*(a+b-1)*x0, a*(a+b-1)*x1])
-    Y *= 1/(b*(b-1)*x0 + a*(a-1)*x1 + a*b)
-    return Y
-
-
-def triangle_area(p0, p1, p2):
-    a = np.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
-    b = np.sqrt((p0[0] - p2[0])**2 + (p0[1] - p2[1])**2)
-    c = np.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
-    S = (a+b+c)/2
-    area = np.sqrt(S*(S-a)*(S-b)*(S-c))
-    return area
+import time
 
 
 def straighten(img):
@@ -46,12 +28,13 @@ def straighten(img):
     blurred = cv2.GaussianBlur(G, (2*(nx//100)+1, 2*(nx//100)+1), 0)
 
     # Binarisation
-    n = nx//30
+    n = 2*(nx//60)+1
     binary = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, 
                                    cv2.THRESH_BINARY_INV, n, n//4)
+    binary = cv2.erode(binary,np.ones((5,5)))
 
     # Hough transform
-    lines = cv2.HoughLines(binary, 1, np.pi/180, nx//2)
+    lines = cv2.HoughLines(binary, 1, np.pi/180, nx//4)
 
     dr = nx//20  # 5% of nx margin for similarity
     dt = np.pi/18  # 10° margin for similarity
@@ -118,8 +101,8 @@ def straighten(img):
     
     C = [(0, 0), (sx-1, 0), (0, sy-1), (sx-1, sy-1)]
     for x, y in P:
-        dist = [np.sqrt(x**2 + y**2), np.sqrt((x-sx)**2 + y**2),
-                np.sqrt(x**2 + (y-sy)**2), np.sqrt((x-sx)**2 + (y-sy)**2)]
+        dist = [np.sqrt(x**2 + y**2), np.sqrt((x-nx)**2 + y**2),
+                np.sqrt(x**2 + (y-ny)**2), np.sqrt((x-nx)**2 + (y-ny)**2)]
         Q.append(C[dist.index(min(dist))])
     
     #Applying the transform
@@ -145,21 +128,39 @@ def straighten(img):
         res = np.zeros((sy,sx))
     res = res.astype(np.uint8)
     percent = 0
-    for v in range(sy):
-        if v/sy > percent/100:
-            print(percent)
-            percent += 1
-        for u in range(sx):
-            x = ((c-u)*(v*h-e) - (f-v)*(u*h-b))/((u*g-a)*(v*h-e) - (v*g-d)*(u*h-b))
-            y = ((c-u)*(v*g-d) - (f-v)*(u*g-a))/((u*h-b)*(v*g-d) - (v*h-e)*(u*g-a))
-            y,x = int(y),int(x)
-            res[v,u] = img[y,x]
+    
+    U = np.asarray(list(range(sx)))
+    V = np.asarray(list(range(sy)))
+    #x = ((v*h-e)*(c-u) - (f-v)*(u*h-b))/((v*h-e)*(u*g-a) - (v*g-d)*(u*h-b))
+    #y = ((v*g-d)*(c-u) - (f-v)*(u*g-a))/((v*g-d)*(u*h-b) - (v*h-e)*(u*g-a))
+    x_list = (np.dot(V[:,None]*h-e , c-U[None]).ravel() - np.dot(f-V[:,None] , U[None]*h-b).ravel())/(np.dot(V[:,None]*h-e , U[None]*g-a).ravel() - np.dot(V[:,None]*g-d , U[None]*h-b).ravel())
+    y_list = (np.dot(V[:,None]*g-d , c-U[None]).ravel() - np.dot(f-V[:,None] , U[None]*g-a).ravel())/(np.dot(V[:,None]*g-d , U[None]*h-b).ravel() - np.dot(V[:,None]*h-e , U[None]*g-a).ravel())
+    # for v in range(sy):
+    #     if v/sy > percent/100:
+    #         print(percent)
+    #         percent += 1
+    #     for u in range(sx):
+    #         x = ((c-u)*(v*h-e) - (f-v)*(u*h-b))/((u*g-a)*(v*h-e) - (v*g-d)*(u*h-b))
+    #         y = ((c-u)*(v*g-d) - (f-v)*(u*g-a))/((u*h-b)*(v*g-d) - (v*h-e)*(u*g-a))
+    #         y,x = int(y),int(x)
+    #         try:
+    #             res[v,u] = img[y,x]
+    #         except:
+    #             print(v,u,y,x,a,b,c,d,e,f,g,h)
+    y_list,x_list = y_list.astype(int),x_list.astype(int)
+    v_list = np.asarray([i//sx for i in range(sx*sy)])
+    u_list = np.asarray([i%sx for i in range(sx*sy)])
+    res[v_list,u_list] = img[y_list,x_list]
     
     return res
 
 
 if __name__ == '__main__':
-    I = cv2.imread('./Images/Rotation/im4.jpg')
+    I = cv2.imread('./Images/Rotation/im2.jpg')
+    I = cv2.rotate(I, cv2.ROTATE_90_CLOCKWISE)
+    t1 = time.perf_counter_ns()
     res = straighten(I)
+    t2 = time.perf_counter_ns()
+    print(t2-t1)
     plt.figure()
     plt.imshow(res)
