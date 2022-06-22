@@ -82,7 +82,6 @@ def straighten(img):
     n = 2*(nx//60)+1
     binary = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
                                    cv2.THRESH_BINARY_INV, n, n//8)
-    binary = cv2.erode(binary, np.ones((5, 5)))
 
     # Hough transform
     lines = cv2.HoughLines(binary, 1, np.pi/180, nx//4)
@@ -218,20 +217,16 @@ def straighten(img):
     v_list = np.asarray([i//sx for i in range(sx*sy)])
     u_list = np.asarray([i % sx for i in range(sx*sy)])
     res[v_list, u_list] = img[y_list, x_list]
-    res2 = interpolation(img,y_list,x_list,sy,sx)
 
-    return res,res2
+    return res
 
 
 if __name__ == '__main__':
-    I = cv2.imread('./Images/Straighten/im5.jpeg')
+    I = cv2.imread('./Images/Rotation/im6.jpg')
     #I = cv2.rotate(I, cv2.ROTATE_90_CLOCKWISE)
     t1 = time.perf_counter_ns()
-    res,res2 = straighten(I)
+    res = straighten(I)
     t2 = time.perf_counter_ns()
-    print(t2-t1)
+    print(f"Execution time : {(t2-t1)/1e9} s")
     plt.figure()
-    plt.subplot(121)
     plt.imshow(res)
-    plt.subplot(122)
-    plt.imshow(res2)
