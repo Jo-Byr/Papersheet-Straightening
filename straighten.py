@@ -94,12 +94,15 @@ def straighten(img, interpolated=False):
     x = ((v*h-e)*(c-u) - (f-v)*(u*h-b))/((v*h-e)*(u*g-a) - (v*g-d)*(u*h-b))
     y = ((v*g-d)*(c-u) - (f-v)*(u*g-a))/((v*g-d)*(u*h-b) - (v*h-e)*(u*g-a))
     """
-    x_list = (np.dot(V[:, None]*h-e, c-U[None]).ravel() - np.dot(f-V[:, None], U[None]*h-b).ravel()) / \
-        (np.dot(V[:, None]*h-e, U[None]*g-a).ravel() -
-         np.dot(V[:, None]*g-d, U[None]*h-b).ravel())
-    y_list = (np.dot(V[:, None]*g-d, c-U[None]).ravel() - np.dot(f-V[:, None], U[None]*g-a).ravel()) / \
-        (np.dot(V[:, None]*g-d, U[None]*h-b).ravel() -
-         np.dot(V[:, None]*h-e, U[None]*g-a).ravel())
+    x_list = (np.dot(V[:, None]*h-e, c-U[None]).ravel()
+              - np.dot(f-V[:, None], U[None]*h-b).ravel()) / \
+             (np.dot(V[:, None]*h-e, U[None]*g-a).ravel()
+              - np.dot(V[:, None]*g-d, U[None]*h-b).ravel())
+             
+    y_list = (np.dot(V[:, None]*g-d, c-U[None]).ravel()
+              - np.dot(f-V[:, None], U[None]*g-a).ravel()) / \
+             (np.dot(V[:, None]*g-d, U[None]*h-b).ravel() -
+              np.dot(V[:, None]*h-e, U[None]*g-a).ravel())
 
     if interpolated:
         res = interpolation(img, y_list, x_list, sy, sx)
@@ -109,6 +112,9 @@ def straighten(img, interpolated=False):
         v_list = np.asarray([i//sx for i in range(sx*sy)])
         u_list = np.asarray([i % sx for i in range(sx*sy)])
         res[v_list, u_list] = img[y_list, x_list]
+
+    if form:
+        res = cv2.rotate(res, cv2.ROTATE_90_CLOCKWISE)
 
     return res
 
@@ -169,7 +175,7 @@ def interpolation(img, Y, X, ty, tx):
 
 
 def get_corners(img):
-    I = img.copy()
+    I = img.copy().astype(np.uint8)
 
     # Grey-scaling the image
     if len(I.shape) == 3:
@@ -179,13 +185,13 @@ def get_corners(img):
 
     ny, nx = G.shape
 
-    # Blurring to ignore the content of the paper in the Hough Transform
-    blurred = cv2.GaussianBlur(G, (2*(nx//100)+1, 2*(nx//100)+1), 0)
+    # Closing to ignore the content of the paper in the Hough Transform
+    closed = cv2.morphologyEx(G, cv2.MORPH_CLOSE, np.ones((2*(nx//40)+1, 2*(nx//40)+1)))
 
     # Binarisation
     n = 2*(nx//120)+1
-    binary = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
-                                   cv2.THRESH_BINARY_INV, n, n//3)
+    binary = cv2.adaptiveThreshold(closed, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                                   cv2.THRESH_BINARY_INV, 2*n+1, n//6)
 
     # Hough transform
     lines = cv2.HoughLines(binary, 1, np.pi/180, nx//4)
@@ -201,13 +207,19 @@ def get_corners(img):
         r, t = lines[i][0]
         treated = False
         for line in found_lines:
-            if (abs(r - line[0]) < dr and abs(t - line[1]) < dt) \
-                    or abs(abs(r) - abs(line[0]) < dr
-                    and abs(t - line[1] - np.pi) < dt):
+            r2, t2 = line
+            if r2 < 0:
+                r2 = abs(r2)
+                t2 -= np.pi
+            if r < 0:
+                r = abs(r)
+                t -= np.pi
+            
+            if (abs(r - r2) < dr and abs(t - t2) < dt):
                 treated = True
 
         if not(treated):
-            found_lines.append((r, t))
+            found_lines.append(tuple(lines[i][0]))
 
         i += 1
 
@@ -219,20 +231,21 @@ def get_corners(img):
             t1 = found_lines[i][1]
             r2 = found_lines[j][0]
             t2 = found_lines[j][1]
-            if t1 != 0 and t2 != 0:
-                x = np.tan(t1)*np.tan(t2)/(np.tan(t2)-np.tan(t1)) \
-                    * (r1/np.sin(t1) - r2/np.sin(t2))
-                y = -x/np.tan(t1) + r1/np.sin(t1)
-
-            elif t1 == 0:
-                x = r1
-                y = -x/np.tan(t2) + r2/np.sin(t2)
-
-            else:
-                x = r2
-                y = -x/np.tan(t1) + r1/np.sin(t1)
-
-            if 0 <= x <= nx and 0 <= y <= ny:
-                corners.append((x, y))
+            if abs(t1 - t2) > np.pi/4:
+                if t1 != 0 and t2 != 0:
+                    x = np.tan(t1)*np.tan(t2)/(np.tan(t2)-np.tan(t1)) \
+                        * (r1/np.sin(t1) - r2/np.sin(t2))
+                    y = -x/np.tan(t1) + r1/np.sin(t1)
+    
+                elif t1 == 0:
+                    x = r1
+                    y = -x/np.tan(t2) + r2/np.sin(t2)
+    
+                else:
+                    x = r2
+                    y = -x/np.tan(t1) + r1/np.sin(t1)
+    
+                if 0 <= x <= nx and 0 <= y <= ny:
+                    corners.append((x, y))
 
     return corners
