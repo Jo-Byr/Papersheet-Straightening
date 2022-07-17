@@ -187,12 +187,6 @@ def get_corners(img):
     binary = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
                                    cv2.THRESH_BINARY_INV, n, n//3)
 
-    plt.figure()
-    plt.subplot(121)
-    plt.imshow(I)
-    plt.subplot(122)
-    plt.imshow(binary)
-
     # Hough transform
     lines = cv2.HoughLines(binary, 1, np.pi/180, nx//4)
 
