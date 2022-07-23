@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 def straighten(img, interpolated=False):
     ny, nx = img.shape[0], img.shape[1]
     source_corners = get_corners(img)
+    
+    assert len(source_corners) == 4, "Corner(s) out of image"
 
     # Mapping target corners to the source corners
     target_corners = []
@@ -249,3 +251,55 @@ def get_corners(img):
                     corners.append((x, y))
 
     return corners
+
+
+import time
+if __name__ == '__main__':
+    doc1 = "./Images/Straighten/"
+    doc2 = "./Images/Rotation/"
+    doc3 = "../Music-score-reader/Images/Music_scores/"
+    # for i in range(1,5):
+    #     I = cv2.imread(doc1 + "im" + str(i) + ".jpg")
+    #     res = straighten(I,False)
+    #     plt.figure()
+    #     plt.subplot(121)
+    #     plt.imshow(I)
+    #     plt.title('Original Image')
+        
+    #     plt.subplot(122)
+    #     plt.imshow(res)
+    #     plt.title('Straightened Image')
+    # for i in range(1,8):
+    #     I = cv2.imread(doc2 + "im" + str(i) + ".jpg")
+    #     res = straighten(I,False)
+    #     plt.figure()
+    #     plt.subplot(121)
+    #     plt.imshow(I)
+    #     plt.title('Original Image')
+        
+    #     plt.subplot(122)
+    #     plt.imshow(res)
+    #     plt.title('Straightened Image')
+    for i in range(1,3):
+        I = cv2.imread(doc3 + "im" + str(i) + ".jpg")
+        res = straighten(I,False)
+        plt.figure()
+        plt.subplot(121)
+        plt.imshow(I)
+        plt.title('Original Image')
+        
+        plt.subplot(122)
+        plt.imshow(res)
+        plt.title('Straightened Image')
+
+
+        I = cv2.imread(doc3 + "im" + str(i) + "-2.jpg")
+        res = straighten(I,False)
+        plt.figure()
+        plt.subplot(121)
+        plt.imshow(I)
+        plt.title('Original Image')
+        
+        plt.subplot(122)
+        plt.imshow(res)
+        plt.title('Straightened Image')
